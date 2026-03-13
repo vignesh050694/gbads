@@ -36,14 +36,28 @@ INTERCEPTOR_USER_TEMPLATE = """Requirement:
 Parse this into a module spec JSON."""
 
 
-def build_interceptor_prompt(requirement: str, clarifications: dict | None = None) -> str:
+def build_interceptor_prompt(
+    requirement: str,
+    clarifications: dict | None = None,
+    repo_context: dict | None = None,
+) -> str:
     if clarifications:
         lines = "\n".join(f"Q: {q}\nA: {a}" for q, a in clarifications.items())
         clarifications_section = f"Clarification answers:\n{lines}"
     else:
         clarifications_section = ""
 
+    repo_section = ""
+    if repo_context:
+        stack = repo_context.get("detected_stack", {})
+        tree = repo_context.get("file_tree", [])[:50]
+        repo_section = (
+            f"\nExisting codebase context:\n"
+            f"Stack: {stack}\n"
+            f"File tree (sample): {', '.join(tree)}\n"
+        )
+
     return INTERCEPTOR_USER_TEMPLATE.format(
         requirement=requirement,
-        clarifications_section=clarifications_section,
+        clarifications_section=clarifications_section + repo_section,
     ).strip()
