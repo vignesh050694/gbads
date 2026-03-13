@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 output/
 logs/
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
