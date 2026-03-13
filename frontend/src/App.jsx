@@ -4,7 +4,9 @@
  */
 import { useEffect, useState, useRef } from "react";
 
-const API = "http://localhost:8000";
+// With Vite proxy, API calls go through /auth, /projects, /features, /requirements
+// For the GitHub OAuth redirect link we still need the backend origin
+const API = "";
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
@@ -89,7 +91,7 @@ function LoginScreen() {
         <h1 className="text-3xl font-bold text-cyan-400 mb-2">GBADS</h1>
         <p className="text-gray-400 mb-8">Goal-Based Autonomous Development System</p>
         <a
-          href={`${API}/auth/github`}
+          href="http://localhost:8000/auth/github"
           className="inline-flex items-center gap-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-xl transition"
         >
           <GitHubIcon />
