@@ -4,6 +4,7 @@ from typing import Optional
 
 from interceptor.prompts import INTERCEPTOR_SYSTEM, build_interceptor_prompt
 from llm.client import LLMClient
+from prompts.loader import PromptCache
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class InterceptorAgent:
         user_prompt = build_interceptor_prompt(requirement, clarifications, repo_context)
 
         content, prompt_tokens, completion_tokens = await self._llm.complete(
-            system=INTERCEPTOR_SYSTEM,
+            system=PromptCache.get("interceptor_system", INTERCEPTOR_SYSTEM),
             user=user_prompt,
             max_tokens=2048,
         )

@@ -178,3 +178,18 @@ class LLMCall(Base):
     completion_tokens: int = Column(Integer, nullable=False)
     duration_ms: int = Column(Integer, nullable=False)
     created_at: datetime = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class SystemPrompt(Base):
+    """Stores LLM system prompts in the database so they can be updated without redeploying."""
+
+    __tablename__ = "system_prompts"
+
+    id: str = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: str = Column(String(255), unique=True, nullable=False)
+    content: str = Column(Text, nullable=False)
+    description: str = Column(Text, nullable=True)
+    version: int = Column(Integer, default=1, nullable=False)
+    is_active: bool = Column(Boolean, default=True, nullable=False)
+    created_at: datetime = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    updated_at: datetime = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)

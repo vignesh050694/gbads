@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from llm.client import LLMClient
+from prompts.loader import PromptCache
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,9 @@ Key files:{key_files_str}
 Generate the docker-compose.yml for testing this codebase."""
 
     try:
-        content, _, _ = await llm.complete(SYSTEM_PROMPT, user_msg)
+        content, _, _ = await llm.complete(
+            PromptCache.get("compose_agent_system", SYSTEM_PROMPT), user_msg
+        )
     except Exception as exc:
         logger.error("Compose agent failed: %s", exc)
         return {

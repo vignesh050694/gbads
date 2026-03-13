@@ -18,6 +18,7 @@ from rich.syntax import Syntax
 
 from agents.tools import TOOL_DEFINITIONS, ToolExecutor
 from llm.client import LLMClient
+from prompts.loader import PromptCache
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -95,7 +96,9 @@ class AgenticCLI:
         executor = ToolExecutor(working_dir)
 
         messages = [{"role": "user", "content": task}]
-        system = SYSTEM_PROMPT.format(max_turns=self._max_turns)
+        system = PromptCache.get("agentic_cli_system", SYSTEM_PROMPT).format(
+            max_turns=self._max_turns
+        )
 
         total_tokens = 0
         turns = 0

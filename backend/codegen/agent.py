@@ -9,6 +9,7 @@ from codegen.prompts import (
     build_codegen_prompt,
 )
 from llm.client import LLMClient
+from prompts.loader import PromptCache
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,11 @@ class CodegenAgent:
         When repo_context is provided, may return a TARGET_FILE-prefixed response.
         """
         suite_dict = suite.to_runner_dict()
-        system = CODEGEN_SYSTEM_CODEBASE_AWARE if repo_context else CODEGEN_SYSTEM
+        system = (
+            PromptCache.get("codegen_system_codebase_aware", CODEGEN_SYSTEM_CODEBASE_AWARE)
+            if repo_context
+            else PromptCache.get("codegen_system", CODEGEN_SYSTEM)
+        )
         user_prompt = build_codegen_prompt(
             spec, suite_dict, iteration_context,
             repo_context=repo_context,
@@ -68,7 +73,11 @@ class CodegenAgent:
         Falls back to module_name.py if no TARGET_FILE header found.
         """
         suite_dict = suite.to_runner_dict()
-        system = CODEGEN_SYSTEM_CODEBASE_AWARE if repo_context else CODEGEN_SYSTEM
+        system = (
+            PromptCache.get("codegen_system_codebase_aware", CODEGEN_SYSTEM_CODEBASE_AWARE)
+            if repo_context
+            else PromptCache.get("codegen_system", CODEGEN_SYSTEM)
+        )
         user_prompt = build_codegen_prompt(
             spec, suite_dict, iteration_context,
             repo_context=repo_context,
