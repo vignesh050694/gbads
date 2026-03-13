@@ -9,19 +9,19 @@ logger = logging.getLogger(__name__)
 
 class GitManager:
     def __init__(self, output_dir: Path, module_name: str):
-        self._output_dir = output_dir
+        self._output_dir = output_dir.resolve()
         self._module_name = module_name
-        output_dir.mkdir(parents=True, exist_ok=True)
+        self._output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize git repo if not already one
         try:
-            self._repo = gitpython.Repo(output_dir)
-            logger.info("Using existing git repo at %s", output_dir)
+            self._repo = gitpython.Repo(self._output_dir)
+            logger.info("Using existing git repo at %s", self._output_dir)
         except gitpython.InvalidGitRepositoryError:
-            self._repo = gitpython.Repo.init(output_dir)
+            self._repo = gitpython.Repo.init(self._output_dir)
             # Initial empty commit so HEAD exists
             self._repo.index.commit("init: gbads session")
-            logger.info("Initialized new git repo at %s", output_dir)
+            logger.info("Initialized new git repo at %s", self._output_dir)
 
     def _code_path(self) -> Path:
         return self._output_dir / f"{self._module_name}.py"
@@ -39,7 +39,8 @@ class GitManager:
         code_path = self._code_path()
         code_path.write_text(code, encoding="utf-8")
 
-        self._repo.index.add([str(code_path)])
+        tracked_path = code_path.relative_to(self._output_dir).as_posix()
+        self._repo.index.add([tracked_path])
         message = f"iter_{iteration} | score={score:.3f} | passed={passed}/{total} | {self._module_name}"
         commit = self._repo.index.commit(message)
         sha = commit.hexsha[:8]

@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # LLM
     anthropic_api_key: str = Field(..., alias="ANTHROPIC_API_KEY")
-    model_id: str = "claude-sonnet-4-6"
+    model_id: str = "claude-haiku-4-5"
     max_tokens_per_call: int = 8192
 
     # Loop

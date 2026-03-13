@@ -8,7 +8,7 @@ from benchmark.generator import BenchmarkGenerator
 from codegen.agent import CodegenAgent
 from codegen.context import ContextBuilder
 from config import get_settings
-from git.manager import GitManager
+from vcs.manager import GitManager
 from interceptor.agent import InterceptorAgent
 from llm.client import LLMClient
 from sandbox.executor import SandboxExecutor
