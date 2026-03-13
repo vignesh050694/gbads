@@ -59,3 +59,45 @@ class LLMClient:
             duration_ms,
         )
         return content, prompt_tokens, completion_tokens
+
+    @retry(
+        retry=retry_if_exception_type(
+            (anthropic.RateLimitError, anthropic.InternalServerError)
+        ),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
+    async def complete_with_tools(
+        self,
+        system: str,
+        messages: list,
+        tools: list,
+        max_tokens: Optional[int] = None,
+    ) -> tuple:
+        """
+        Send a message with tool definitions.
+        Returns (Message, prompt_tokens, completion_tokens).
+        The caller manages the agentic loop (handling tool_use blocks and sending results).
+        """
+        start = time.monotonic()
+        response = await self._client.messages.create(
+            model=self._model,
+            max_tokens=max_tokens or self._max_tokens,
+            system=system,
+            messages=messages,
+            tools=tools,
+        )
+        duration_ms = int((time.monotonic() - start) * 1000)
+
+        prompt_tokens = response.usage.input_tokens
+        completion_tokens = response.usage.output_tokens
+
+        logger.info(
+            "LLM tool call: stop_reason=%s prompt=%d completion=%d duration=%dms",
+            response.stop_reason,
+            prompt_tokens,
+            completion_tokens,
+            duration_ms,
+        )
+        return response, prompt_tokens, completion_tokens

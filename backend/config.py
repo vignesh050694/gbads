@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # LLM
     anthropic_api_key: str = Field(..., alias="ANTHROPIC_API_KEY")
-    model_id: str = "claude-haiku-4-5"
+    model_id: str = "claude-sonnet-4-6"
     max_tokens_per_call: int = 8192
 
     # Loop
@@ -21,11 +21,21 @@ class Settings(BaseSettings):
 
     # Paths
     output_dir: Path = Field(Path("./output"), alias="GBADS_OUTPUT_DIR")
+    workspace_base: Path = Field(Path("./workspace"), alias="WORKSPACE_BASE")
 
-    # Database
-    database_url: str = Field(
-        "postgresql://localhost/gbads", alias="DATABASE_URL"
+    # Database (v2: SQLite)
+    db_path: str = Field("./gbads.db", alias="GBADS_DB_PATH")
+
+    # GitHub OAuth (v2)
+    github_client_id: str = Field("", alias="GITHUB_CLIENT_ID")
+    github_client_secret: str = Field("", alias="GITHUB_CLIENT_SECRET")
+    github_redirect_uri: str = Field(
+        "http://localhost:8000/auth/github/callback", alias="GITHUB_REDIRECT_URI"
     )
+
+    # JWT (v2)
+    jwt_secret_key: str = Field("change-me-in-production", alias="JWT_SECRET_KEY")
+    jwt_expire_hours: int = Field(72, alias="JWT_EXPIRE_HOURS")
 
     model_config = {"env_file": ".env", "populate_by_name": True}
 

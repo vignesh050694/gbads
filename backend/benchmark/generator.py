@@ -1,11 +1,34 @@
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from benchmark.cases import MatchStrategy, TestCase, TestSuite
 from llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
+
+METRIC_PLAN_SYSTEM = """You are a software QA architect. Given a module spec, generate a human-readable
+metric approval plan BEFORE generating actual test cases. The user must approve this plan.
+
+Return ONLY valid JSON matching the schema below:
+{
+  "metric": "Test case pass rate",
+  "formula": "passed_cases / total_cases",
+  "target": "1.0 (100%)",
+  "planned_test_cases": {
+    "happy_path": { "count": 3, "examples": ["..."] },
+    "security": { "count": 4, "examples": ["..."] },
+    "boundary": { "count": 3, "examples": ["..."] },
+    "null_input": { "count": 3, "examples": ["..."] },
+    "edge_case": { "count": 2, "examples": ["..."] }
+  },
+  "total_planned": 15,
+  "real_infra_testing": false,
+  "infra_services": [],
+  "infra_note": "",
+  "success_definition": "All N tests pass",
+  "estimated_seconds_per_iteration": 30
+}"""
 
 GENERATOR_SYSTEM = """You are a rigorous test case generator for a software module.
 Given a module spec and sample input/output examples, generate a comprehensive test suite.
@@ -76,6 +99,61 @@ def _make_fallback_suite(spec: dict, user_examples: dict) -> TestSuite:
 class BenchmarkGenerator:
     def __init__(self, llm: LLMClient):
         self._llm = llm
+
+    async def generate_metric_plan(
+        self,
+        module_spec: dict,
+        user_examples: dict,
+        repo_context: Optional[dict] = None,
+        compose_result: Optional[dict] = None,
+    ) -> dict:
+        """Generate a human-readable metric plan for user approval BEFORE the loop starts."""
+        services = (compose_result or {}).get("services", [])
+        infra_note = (
+            f"Tests will use real: {', '.join(services)}" if services else ""
+        )
+
+        user_msg = (
+            f"Module spec:\n{json.dumps(module_spec, indent=2)}\n\n"
+            f"Infrastructure services: {services or 'none (in-process only)'}\n"
+            "Generate the metric approval plan JSON."
+        )
+        try:
+            content, _, _ = await self._llm.complete(
+                system=METRIC_PLAN_SYSTEM,
+                user=user_msg,
+                max_tokens=1024,
+            )
+            text = content.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+            plan = json.loads(text)
+        except Exception as exc:
+            logger.warning("Metric plan LLM failed (%s), using fallback", exc)
+            plan = {
+                "metric": "Test case pass rate",
+                "formula": "passed_cases / total_cases",
+                "target": "1.0 (100%)",
+                "planned_test_cases": {
+                    "happy_path": {"count": 3, "examples": []},
+                    "security": {"count": 2, "examples": []},
+                    "boundary": {"count": 2, "examples": []},
+                    "null_input": {"count": 2, "examples": []},
+                    "edge_case": {"count": 1, "examples": []},
+                },
+                "total_planned": 10,
+                "real_infra_testing": bool(services),
+                "infra_services": services,
+                "infra_note": infra_note,
+                "success_definition": "All test cases pass",
+                "estimated_seconds_per_iteration": 90 if services else 30,
+            }
+
+        # Ensure infra fields are set from compose_result
+        plan["real_infra_testing"] = bool(services)
+        plan["infra_services"] = services
+        if infra_note:
+            plan["infra_note"] = infra_note
+
+        return plan
 
     async def generate(self, spec: dict, user_examples: dict) -> TestSuite:
         """Generate a full test suite from module spec + user examples."""

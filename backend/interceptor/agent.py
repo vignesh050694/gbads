@@ -16,6 +16,7 @@ class InterceptorAgent:
         self,
         requirement: str,
         clarifications: Optional[dict] = None,
+        repo_context: Optional[dict] = None,
     ) -> dict:
         """Parse a requirement into a module spec.
 
@@ -26,7 +27,7 @@ class InterceptorAgent:
         the caller should surface those questions to the user and call parse()
         again with answers.
         """
-        user_prompt = build_interceptor_prompt(requirement, clarifications)
+        user_prompt = build_interceptor_prompt(requirement, clarifications, repo_context)
 
         content, prompt_tokens, completion_tokens = await self._llm.complete(
             system=INTERCEPTOR_SYSTEM,
