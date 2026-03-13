@@ -47,6 +47,22 @@ async def _sync_legacy_postgres_schema(engine) -> None:
         "ALTER TABLE iterations ADD COLUMN IF NOT EXISTS diff TEXT",
         "ALTER TABLE iterations ADD COLUMN IF NOT EXISTS is_best BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE llm_calls ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'",
+        # system_prompts — created by SQLAlchemy metadata but adding explicit sync for
+        # environments that already have the schema without this table.
+        """
+        CREATE TABLE IF NOT EXISTS system_prompts (
+            id          VARCHAR        PRIMARY KEY,
+            name        VARCHAR(255)   NOT NULL UNIQUE,
+            content     TEXT           NOT NULL,
+            description TEXT,
+            version     INTEGER        NOT NULL DEFAULT 1,
+            is_active   BOOLEAN        NOT NULL DEFAULT TRUE,
+            created_at  TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+            updated_at  TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS ix_system_prompts_name ON system_prompts (name)",
+        "CREATE INDEX IF NOT EXISTS ix_system_prompts_is_active ON system_prompts (is_active)",
     ]
 
     async with engine.begin() as conn:
@@ -55,7 +71,7 @@ async def _sync_legacy_postgres_schema(engine) -> None:
 
 
 async def init_db() -> None:
-    """Create all tables."""
+    """Create all tables and warm up the prompt cache."""
     engine = get_engine()
     settings = get_settings()
     parsed = urlparse(settings.database_url)
@@ -68,6 +84,13 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database initialized")
+
+    # Load system prompts into the in-memory cache so agents can access them
+    # synchronously without additional DB round-trips.
+    from prompts.loader import PromptCache
+    factory = get_session_factory()
+    async with factory() as db:
+        await PromptCache.load_all(db)
 
 
 async def close_db() -> None:

@@ -6,18 +6,20 @@ import asyncio
 import json
 import logging
 import sys
+import uuid
 from pathlib import Path
 from typing import Optional
 
 import typer
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from rich.console import Console
 
 import db.store as store_v1  # v1 legacy store (used by LoopManager)
 from config import get_settings
 from database import init_db
+from logging_config import configure_logging, correlation_id_var
 from loop.manager import LoopManager
 from output import notifier, report as report_gen
 from routers import auth, projects, features, requirements
@@ -43,13 +45,23 @@ api.include_router(features.router)
 api.include_router(requirements.router)
 
 
+@api.middleware("http")
+async def _correlation_id_middleware(request: Request, call_next):
+    """Attach a correlation ID to every request and propagate it via context var."""
+    cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+    token = correlation_id_var.set(cid)
+    try:
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = cid
+        return response
+    finally:
+        correlation_id_var.reset(token)
+
+
 @api.on_event("startup")
 async def _startup():
+    configure_logging()
     await init_db()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
 
 
 # ── Typer CLI ──────────────────────────────────────────────────────────────────
@@ -61,11 +73,9 @@ app = typer.Typer(
 )
 console = Console()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    stream=sys.stderr,
-)
+# Configure structured logging for CLI mode at module load time so that any
+# import-time log messages also use the correlation-ID format.
+configure_logging(stream=sys.stderr)
 
 
 def _load_examples(examples_path: Optional[Path]) -> dict:
@@ -85,6 +95,10 @@ async def _run_generate(
 ) -> None:
     settings = get_settings()
     user_examples = _load_examples(examples)
+
+    # Assign a correlation ID for the entire CLI session
+    cid = str(uuid.uuid4())
+    correlation_id_var.set(cid)
 
     console.print(f"\n[bold cyan]GBADS[/bold cyan] — Starting autonomous generation")
     console.print(f"[dim]Requirement:[/dim] {requirement}")
@@ -167,6 +181,10 @@ async def _run_generate(
 
 async def _run_resume(session_id: str) -> None:
     settings = get_settings()
+
+    cid = str(uuid.uuid4())
+    correlation_id_var.set(cid)
+
     await store_v1.init_pool()
 
     try:

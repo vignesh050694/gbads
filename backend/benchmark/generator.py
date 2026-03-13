@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from benchmark.cases import MatchStrategy, TestCase, TestSuite
 from llm.client import LLMClient
+from prompts.loader import PromptCache
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +121,7 @@ class BenchmarkGenerator:
         )
         try:
             content, _, _ = await self._llm.complete(
-                system=METRIC_PLAN_SYSTEM,
+                system=PromptCache.get("benchmark_metric_plan_system", METRIC_PLAN_SYSTEM),
                 user=user_msg,
                 max_tokens=1024,
             )
@@ -167,7 +168,7 @@ class BenchmarkGenerator:
 
         try:
             content, _, _ = await self._llm.complete(
-                system=GENERATOR_SYSTEM,
+                system=PromptCache.get("benchmark_generator_system", GENERATOR_SYSTEM),
                 user=user_prompt,
                 max_tokens=4096,
             )
